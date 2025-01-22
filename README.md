@@ -8,6 +8,8 @@
 ## Objectif du projet
 
 
+## 1 La bibliothèque image
+
 ### Question 1 : Créer un nouveau projet Cargo, avec une dépendance sur la bibliothèque image, version 0.24.9.
 
 Pour créer un nouveau projet Cargo, on peut utiliser la commande `cargo new ditherpunk`. Ensuite, on ajoute la dépendance sur la bibliothèque image dans le fichier Cargo.toml :
@@ -113,6 +115,9 @@ puis ensuite ont va créer une boucle pour parcourir les pixels de l'image et le
 
 ![alt text](tp_note/image/myimage_blanc.png)
 
+
+## 2 Passage en monochrome par seuillage
+
 ### Question 6 : Comment récupérer la luminosité d’un pixel?
 
 Pour récupérer la luminosité d'un pixel, on peut utiliser le code RGB d'un pixel avec la formule suivante  : `luminosité = 0.2126 * rouge + 0.7152 * vert + 0.0722 * bleu`.
@@ -199,10 +204,6 @@ let args: DitherArgs = argh::from_env();
                 };
             }
         }
-        Mode::Palette(opts) => {
-            println!("Mode palette avec {} couleurs", opts.n_couleurs);
-            // Implémentation du mode palette si nécessaire
-        }
     }
     if let Some(output) = args.output {
         rgb8_img.save(output)?;
@@ -215,3 +216,128 @@ Donc pour tester le programme on peut utiliser la commande suivante:
 ce qui nous donne l'image suivante:
 
 ![alt text](tp_note/image/exercice8.png)
+
+
+## 3 Passage à une palette
+
+### Question 9 : Comment calculer la distance entre deux couleurs?
+
+L'une des méthodes courantes pour calculer la distance entre deux couleurs en espace RGB est la distance euclidienne dans l’espace 3D des couleurs :
+![alt text](image_rendu/exo9.png)
+
+ce qui correspon à la racine carrée de la somme des carrés des différences entre les composantes de couleur.
+
+### Question 10 : Implémenter le calcul de distance
+
+Ajout de la fonction de calcul de distance euclidienne entre deux couleurs :
+
+```rust
+fn distance_euclidienne(c1: [u8; 3], c2: [u8; 3]) -> f32 {
+    let r_diff = (c1[0] as f32 - c2[0] as f32).powi(2);
+    let g_diff = (c1[1] as f32 - c2[1] as f32).powi(2);
+    let b_diff = (c1[2] as f32 - c2[2] as f32).powi(2);
+    
+    (r_diff + g_diff + b_diff).sqrt()
+}
+```
+
+Ajout de la fonction de recherche de la couleur la plus proche dans une palette :
+
+```rust
+fn couleur_plus_proche(pixel: [u8; 3], palette: &[[u8; 3]]) -> [u8; 3] {
+    *palette.iter()
+        .min_by(|&&c1, &&c2|
+            distance_euclidienne(pixel, c1)
+                .partial_cmp(&distance_euclidienne(pixel, c2))
+                .unwrap()
+        )
+        .unwrap()
+}
+```
+
+Enfin ajout de la fonction de conversion de l'image en palette :
+
+```rust
+n palette_reduite(img: &mut RgbImage, n_couleurs: usize) {
+    // Palette des couleurs de base (NOIR, BLANC, ROUGE, VERT, BLEU, JAUNE, CYAN, MAGENTA)
+    let palette: Vec<[u8; 3]> = vec![
+        [0, 0, 0], // Noir
+        [255, 255, 255], // Blanc
+        [255, 0, 0], // Rouge
+        [0, 255, 0], // Vert
+        [0, 0, 255], // Bleu
+        [255, 255, 0], // Jaune
+        [0, 255, 255], // Cyan
+        [255, 0, 255], // Magenta
+    ];
+    if n_couleurs == 0 {
+        println!("⚠️ Erreur : La palette ne peut pas être vide !");
+        return; // Ne modifie pas l'image
+    }
+
+    // Limiter la palette à n_couleurs
+    let palette = &palette[..n_couleurs];
+
+    // Parcourir chaque pixel et trouver la couleur la plus proche dans la palette
+    for pixel in img.pixels_mut() {
+        let couleur_pixel = pixel.0; // RGB de ce pixel
+        let couleur_proche = couleur_plus_proche(couleur_pixel, palette);
+        *pixel = image::Rgb(couleur_proche);
+    }
+}
+```
+
+Pour finir modification du main pour prendre en compte la conversion de l'image en palette :
+
+```rust
+match &args.mode {
+        Mode::Seuil(opts) => {
+            let couleur1 = couleurs.get(opts.couleur1.to_lowercase().as_str()).unwrap_or(&[0, 0, 0]);
+            let couleur2 = couleurs.get(opts.couleur2.to_lowercase().as_str()).unwrap_or(&[255, 255, 255]);
+            
+            for pixel in rgb8_img.pixels_mut() {
+                let luminosite = calcul_luminosite(pixel.0);
+                *pixel = if luminosite > 128.0 {
+                    image::Rgb(*couleur2)
+                } else {
+                    image::Rgb(*couleur1)
+                };
+            }
+        }
+        Mode::Palette(opts) => {
+            palette_reduite(&mut rgb8_img, opts.n_couleurs);
+        }
+    }
+   
+    if let Some(output) = args.output {
+        rgb8_img.save(output)?;
+    }
+```
+
+Pour tester le programme on peut utiliser la commande suivante:
+
+![alt text](image_rendu/exo10.png)
+
+ce qui nous donne l'image suivante:
+
+![alt text](tp_note/image/exercice10.png)
+
+
+### Question 11 : Votre application doit se comporter correctement si on donne une palette vide
+
+Pour éviter une erreur si la palette est vide, on peut ajouter une vérification dans la main verifiant si la palette est vide, egale à 0, et afficher un message d'erreur si c'est le cas.
+
+```rust
+Mode::Palette(opts) => {
+            if opts.n_couleurs == 0{
+                eprintln!("Erreur : Vous devez spécifier au moins 1 couleur pour la palette.");
+                std::process::exit(1); // Quitte le programme avec une erreur
+            }
+            palette_reduite(&mut rgb8_img, opts.n_couleurs);
+        }
+```
+
+
+
+
+        
