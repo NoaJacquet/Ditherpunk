@@ -34,11 +34,11 @@ enum Mode {
 struct OptsSeuil {
     /// première couleur
     #[argh(option)]
-    couleur1: String,
+    couleur1: Option<String>,
 
     /// deuxième couleur
     #[argh(option)]
-    couleur2: String,
+    couleur2: Option<String>,
 }
 
 
@@ -159,15 +159,25 @@ fn main() -> Result<(), ImageError> {
     //question 8
     match &args.mode {
         Mode::Seuil(opts) => {
-            let couleur1 = couleurs.get(opts.couleur1.to_lowercase().as_str()).unwrap_or(&[0, 0, 0]);
-            let couleur2 = couleurs.get(opts.couleur2.to_lowercase().as_str()).unwrap_or(&[255, 255, 255]);
-            
+            let couleur1 = if let Some(c1) = &opts.couleur1 {
+                couleurs.get(c1.to_lowercase().as_str()).unwrap_or(&[0, 0, 0]) // Noir si non trouvé
+            } else {
+                &[0, 0, 0] // Noir si non défini
+            };
+        
+            // Gestion de couleur2 (Blanc par défaut)
+            let couleur2 = if let Some(c2) = &opts.couleur2 {
+                couleurs.get(c2.to_lowercase().as_str()).unwrap_or(&[255, 255, 255]) // Blanc si non trouvé
+            } else {
+                &[255, 255, 255] // Blanc si non défini
+            };
+        
             for pixel in rgb8_img.pixels_mut() {
                 let luminosite = calcul_luminosite(pixel.0);
                 *pixel = if luminosite > 128.0 {
-                    image::Rgb(*couleur2)
+                    image::Rgb(*couleur2) // Lumineux → Couleur claire (blanc par défaut)
                 } else {
-                    image::Rgb(*couleur1)
+                    image::Rgb(*couleur1) // Sombre → Couleur sombre (noir par défaut)
                 };
             }
         }
