@@ -172,6 +172,29 @@ fn tramage_bayer(img: &mut RgbImage, n: u32) {
     }
  }
  
+fn diffusion_erreur(img: &mut RgbImage) {
+    let (width, height) = img.dimensions();
+    let mut erreurs = vec![vec![0.0; width as usize]; height as usize];
+    
+    for y in 0..height {
+        for x in 0..width {
+            let pixel = img.get_pixel_mut(x, y);
+            let luminosite = calcul_luminosite(pixel.0) / 255.0;
+            let nouvelle_luminosite = (luminosite + erreurs[y as usize][x as usize]).clamp(0.0, 1.0);
+            
+            let nouvelle_couleur = if nouvelle_luminosite > 0.5 { 255 } else { 0 };
+            let erreur = nouvelle_luminosite - (nouvelle_couleur as f32 / 255.0);
+            *pixel = image::Rgb([nouvelle_couleur, nouvelle_couleur, nouvelle_couleur]);
+            
+            if x + 1 < width {
+                erreurs[y as usize][(x + 1) as usize] += erreur * 0.5;
+            }
+            if y + 1 < height {
+                erreurs[(y + 1) as usize][x as usize] += erreur * 0.5;
+            }
+        }
+    }
+}
 
 fn main() -> Result<(), ImageError> {
     // let args: DitherArgs = argh::from_env();
@@ -262,7 +285,8 @@ fn main() -> Result<(), ImageError> {
             palette_reduite(&mut rgb8_img, opts.n_couleurs);
         }
         Mode::Tramage(_) => {
-            tramage_aleatoire(&mut rgb8_img);
+            diffusion_erreur(&mut rgb8_img);
+            // tramage_aleatoire(&mut rgb8_img);
         }
         Mode::Tramagebayer(opts) => {
             tramage_bayer(&mut rgb8_img, opts.ordre);
