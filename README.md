@@ -497,6 +497,44 @@ Mode::Tramagebayer(opts) => {
 ![alt text](tp_note/image/question15.png)
 
 
+## 6 Diffusion d’erreur
+
+
+### Question 16 : mplémenter un mécanisme de diffusion d’erreur suivant la matrice pour les images en noir et blanc.
+```
+( ∗ 0.5
+0.5 0 ) 
+```
+
+```rust
+fn diffusion_erreur(img: &mut RgbImage) {
+    let (width, height) = img.dimensions();
+    let mut erreurs = vec![vec![0.0; width as usize]; height as usize];
+    
+    for y in 0..height {
+        for x in 0..width {
+            let pixel = img.get_pixel_mut(x, y);
+            let luminosite = calcul_luminosite(pixel.0) / 255.0;
+            let nouvelle_luminosite = (luminosite + erreurs[y as usize][x as usize]).clamp(0.0, 1.0);
+            
+            let nouvelle_couleur = if nouvelle_luminosite > 0.5 { 255 } else { 0 };
+            let erreur = nouvelle_luminosite - (nouvelle_couleur as f32 / 255.0);
+            *pixel = image::Rgb([nouvelle_couleur, nouvelle_couleur, nouvelle_couleur]);
+            
+            if x + 1 < width {
+                erreurs[y as usize][(x + 1) as usize] += erreur * 0.5;
+            }
+            if y + 1 < height {
+                erreurs[(y + 1) as usize][x as usize] += erreur * 0.5;
+            }
+        }
+    }
+}
+```
+
+![alt text](tp_note/image/question16.png)
+
+
 
 
 ## 7 La bibliothèque argh
