@@ -347,6 +347,8 @@ Mode::Palette(opts) => {
         }
 ```
 
+### Question 12 : Colotramage aleatoire
+
 
 
 

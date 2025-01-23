@@ -2,6 +2,7 @@ use argh::FromArgs;
 use image::{DynamicImage,ImageBuffer,RgbImage};
 use image::error::ImageError;
 use std::collections::HashMap;
+use rand::Rng;
 
 
 #[derive(Debug, Clone, PartialEq, FromArgs)]
@@ -26,6 +27,7 @@ struct DitherArgs {
 enum Mode {
     Seuil(OptsSeuil),
     Palette(OptsPalette),
+    Tramage(OptsTramage),
 }
 
 #[derive(Debug, Clone, PartialEq, FromArgs)]
@@ -42,7 +44,6 @@ struct OptsSeuil {
 }
 
 
-
 #[derive(Debug, Clone, PartialEq, FromArgs)]
 #[argh(subcommand, name="palette")]
 /// Rendu de l’image avec une palette contenant un nombre limité de couleurs
@@ -51,6 +52,13 @@ struct OptsPalette {
     /// le nombre de couleurs à utiliser, dans la liste [NOIR, BLANC, ROUGE, VERT, BLEU, JAUNE, CYAN, MAGENTA]
     #[argh(option)]
     n_couleurs: usize
+}
+
+#[derive(Debug, Clone, PartialEq, FromArgs)]
+#[argh(subcommand, name="tramage")]
+/// Rendu de l’image par seuillage monochrome.
+struct OptsTramage {
+
 }
 
 fn calcul_luminosite(pixel: [u8; 3]) -> f32 {
@@ -97,6 +105,21 @@ fn palette_reduite(img: &mut RgbImage, n_couleurs: usize) {
         let couleur_pixel = pixel.0; // RGB de ce pixel
         let couleur_proche = couleur_plus_proche(couleur_pixel, palette);
         *pixel = image::Rgb(couleur_proche);
+    }
+}
+
+fn tramage_aleatoire(img: &mut RgbImage) {
+    let mut rng = rand::thread_rng();
+
+    for pixel in img.pixels_mut() {
+        let luminosite = calcul_luminosite(pixel.0);
+        let seuil_aleatoire: f32 = rng.gen(); // Génère un nombre aléatoire entre 0 et 1
+
+        *pixel = if luminosite / 255.0 > seuil_aleatoire {
+            image::Rgb([255, 255, 255]) // Blanc
+        } else {
+            image::Rgb([0, 0, 0]) // Noir
+        };
     }
 }
 
@@ -187,6 +210,9 @@ fn main() -> Result<(), ImageError> {
                 std::process::exit(1);
             }
             palette_reduite(&mut rgb8_img, opts.n_couleurs);
+        }
+        Mode::Tramage(_) => {
+            tramage_aleatoire(&mut rgb8_img);
         }
     }
    
