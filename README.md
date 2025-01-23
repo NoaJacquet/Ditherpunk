@@ -346,6 +346,7 @@ Mode::Palette(opts) => {
             palette_reduite(&mut rgb8_img, opts.n_couleurs);
         }
 ```
+## 4 Tramage aléatoire (dithering)
 
 ### Question 12 : Tramage aleatoire
 
@@ -393,6 +394,9 @@ Mode::Tramage(_) => {
     tramage_aleatoire(&mut rgb8_img);
 }
 ```
+![alt text](tp_note/image/question12.png)
+
+## 5 Utilisation de la matrice de Bayer comme trame
 
 ### Question 13 : Déterminez B3
 
@@ -436,3 +440,91 @@ fn generer_matrice_bayer(n: u32) -> Vec<Vec<u8>> {
     matrice
  }
 ```
+
+### Question 15 : Implémenter le tramage par matrice de Bayer.
+
+Tout d'abord, on crée une fonction pour effectuer le tramage par matrice de Bayer.
+
+```rust
+fn tramage_bayer(img: &mut RgbImage, n: u32) {
+    let matrice_bayer = generer_matrice_bayer(n);
+    let taille = matrice_bayer.len() as u32;
+   
+    for (x, y, pixel) in img.enumerate_pixels_mut() {
+        let luminosite = calcul_luminosite(pixel.0) / 255.0;
+        let seuil = matrice_bayer[(y % taille) as usize][(x % taille) as usize] as f32 / (taille * taille) as f32;
+ 
+ 
+        *pixel = if luminosite > seuil {
+            image::Rgb([255, 255, 255]) // Blanc
+        } else {
+            image::Rgb([0, 0, 0]) // Noir
+        };
+    }
+ }
+```
+
+Ensuite, on implémente ce qui est nécessaire à son appel.
+
+```rust
+#[derive(Debug, Clone, PartialEq, FromArgs)]
+#[argh(subcommand, name="tramagebayer")]
+/// Rendu de l'image par matrice de Bayer
+struct OptsTramagebayer {
+    /// la taille de la matrice
+    #[argh(option)]
+    ordre: u32
+}
+```
+modification de l'enume Mode
+```rust
+#[derive(Debug, Clone, PartialEq, FromArgs)]
+#[argh(subcommand)]
+enum Mode {
+    Seuil(OptsSeuil),
+    Palette(OptsPalette),
+    Tramage(OptsTramage),
+    Tramagebayer(OptsTramagebayer),
+}
+```
+Pour finir modification du main pour prendre en compte la conversion de l'image en palette :
+
+```rust
+Mode::Tramagebayer(opts) => {
+            tramage_bayer(&mut rgb8_img, opts.ordre);
+            }
+```
+![alt text](tp_note/image/question15.png)
+
+
+
+
+## 7 La bibliothèque argh
+
+### Question 21 : Donner une spécification de votre interface sous forme d’un projet d’écran d’aide, tel que celui qui sera obtenu par cargo run -- --help.
+
+lorsque nous faisons la commande `cargo run -- --help` nous obtenons l'aide suivante:
+
+![alt text](image_rendu/image.png)
+
+### Question 22 et 23 :
+
+Durant la totalité du projet nous avons utilisé la bibliothèque argh pour la gestion des arguments de la ligne de commande. Nous avons donc utilisé les macros `#[derive(FromArgs)]` et `#[argh(subcommand)]` pour définir les structures des arguments et des sous-commandes.
+
+comme par exemple pour la structure des arguments de la commande Seuil:
+```rust
+#[derive(Debug, Clone, PartialEq, FromArgs)]
+#[argh(subcommand, name="seuil")]
+/// Rendu de l’image par seuillage monochrome.
+struct OptsSeuil {
+    /// première couleur
+    #[argh(option)]
+    couleur1: Option<String>,
+
+    /// deuxième couleur
+    #[argh(option)]
+    couleur2: Option<String>,
+}
+```
+et il en est de meme dans le restes de notre fichier [main.rs](tp_note/src/main.rs)
+
