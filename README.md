@@ -151,7 +151,7 @@ Dans un premier temps nous avons simplifier l'image pour quelle ne contienne que
 
 ### Question 8 : Permettre à l’utilisateurice de remplacer “noir” et “blanc” par une paire de couleurs au choix
 
-Dans un modifier la structure de seuil pour quelle prenne en paramètre deux couleurs.
+Dans un premier temps, il faut modifier la structure de seuil pour quelle prenne en paramètre deux couleurs.
 
 ```rust
 struct OptsSeuil {
@@ -347,9 +347,92 @@ Mode::Palette(opts) => {
         }
 ```
 
-### Question 12 : Colotramage aleatoire
+### Question 12 : Tramage aleatoire
 
+On créé d'abord la fonction permettant d'effectuer le tramage aléatoire.
 
+```rust
+fn tramage_aleatoire(img: &mut RgbImage) {
+    let mut rng = rand::thread_rng();
 
+    for pixel in img.pixels_mut() {
+        let luminosite = calcul_luminosite(pixel.0);
+        let seuil_aleatoire: f32 = rng.gen(); // Génère un nombre aléatoire entre 0 et 1
 
-        
+        *pixel = if luminosite / 255.0 > seuil_aleatoire {
+            image::Rgb([255, 255, 255]) // Blanc
+        } else {
+            image::Rgb([0, 0, 0]) // Noir
+        };
+    }
+}
+```
+Puis on implémente ce qui est nécessaire à son appel.
+
+```rust
+#[derive(Debug, Clone, PartialEq, FromArgs)]
+#[argh(subcommand)]
+enum Mode {
+    Seuil(OptsSeuil),
+    Palette(OptsPalette),
+    Tramage(OptsTramage),
+}
+```
+
+```rust
+#[derive(Debug, Clone, PartialEq, FromArgs)]
+#[argh(subcommand, name="tramage")]
+/// Rendu de l’image par seuillage monochrome.
+struct OptsTramage {
+
+}
+```
+
+```rust
+Mode::Tramage(_) => {
+    tramage_aleatoire(&mut rgb8_img);
+}
+```
+
+### Question 13 : Déterminez B3
+
+```
+B3 = 1/64 * [
+0   32    8   40    2   34   10   42
+48   16   56   24   50   18   58   26
+12   44    4   36   14   46    6   38
+60   28   52   20   62   30   54   22
+3   35   11   43    1   33    9   41
+51   19   59   27   49   17   57   25
+15   47    7   39   13   45    5   37
+63   31   55   23   61   29   53   21
+]
+```
+
+### Question 14 : 
+
+Afin d'implémenter une matrice de Bayer, le type de données qui nous semble le plus judicieux est un tableau 2D type Vec<Vec<u32>>.
+
+Ce type de données permet de représenter une grande plage de données et a une précision suffisante pour les indices de matrices.
+
+```rust
+fn generer_matrice_bayer(n: u32) -> Vec<Vec<u8>> {
+    if n == 0 {
+        return vec![vec![0]];
+    }
+    let taille = 2usize.pow(n);
+    let taille_precedente = taille / 2;
+    let matrice_precedente = generer_matrice_bayer(n - 1);
+    let mut matrice = vec![vec![0; taille]; taille];
+    for i in 0..taille_precedente {
+        for j in 0..taille_precedente {
+            let valeur = matrice_precedente[i][j];
+            matrice[i][j] = 4 * valeur;
+            matrice[i][j + taille_precedente] = 4 * valeur + 2;
+            matrice[i + taille_precedente][j] = 4 * valeur + 3;
+            matrice[i + taille_precedente][j + taille_precedente] = 4 * valeur + 1;
+        }
+    } 
+    matrice
+ }
+```
