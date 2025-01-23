@@ -28,6 +28,7 @@ enum Mode {
     Seuil(OptsSeuil),
     Palette(OptsPalette),
     Tramage(OptsTramage),
+    Tramagebayer(OptsTramagebayer),
 }
 
 #[derive(Debug, Clone, PartialEq, FromArgs)]
@@ -60,6 +61,16 @@ struct OptsPalette {
 struct OptsTramage {
 
 }
+
+#[derive(Debug, Clone, PartialEq, FromArgs)]
+#[argh(subcommand, name="tramagebayer")]
+/// Rendu de l'image par matrice de Bayer
+struct OptsTramagebayer {
+    /// la taille de la matrice
+    #[argh(option)]
+    ordre: u32
+}
+
 
 fn calcul_luminosite(pixel: [u8; 3]) -> f32 {
     return 0.2126 * pixel[0] as f32 + 0.7152 * pixel[1] as f32 + 0.0722 * pixel[2] as f32;
@@ -122,6 +133,45 @@ fn tramage_aleatoire(img: &mut RgbImage) {
         };
     }
 }
+
+fn generer_matrice_bayer(n: u32) -> Vec<Vec<u8>> {
+    if n == 0 {
+        return vec![vec![0]];
+    }
+    let taille = 2usize.pow(n);
+    let taille_precedente = taille / 2;
+    let matrice_precedente = generer_matrice_bayer(n - 1);
+    let mut matrice = vec![vec![0; taille]; taille];
+    for i in 0..taille_precedente {
+        for j in 0..taille_precedente {
+            let valeur = matrice_precedente[i][j];
+            matrice[i][j] = 4 * valeur;
+            matrice[i][j + taille_precedente] = 4 * valeur + 2;
+            matrice[i + taille_precedente][j] = 4 * valeur + 3;
+            matrice[i + taille_precedente][j + taille_precedente] = 4 * valeur + 1;
+        }
+    } 
+    matrice
+ }
+ 
+
+fn tramage_bayer(img: &mut RgbImage, n: u32) {
+    let matrice_bayer = generer_matrice_bayer(n);
+    let taille = matrice_bayer.len() as u32;
+   
+    for (x, y, pixel) in img.enumerate_pixels_mut() {
+        let luminosite = calcul_luminosite(pixel.0) / 255.0;
+        let seuil = matrice_bayer[(y % taille) as usize][(x % taille) as usize] as f32 / (taille * taille) as f32;
+ 
+ 
+        *pixel = if luminosite > seuil {
+            image::Rgb([255, 255, 255]) // Blanc
+        } else {
+            image::Rgb([0, 0, 0]) // Noir
+        };
+    }
+ }
+ 
 
 fn main() -> Result<(), ImageError> {
     // let args: DitherArgs = argh::from_env();
@@ -213,6 +263,9 @@ fn main() -> Result<(), ImageError> {
         }
         Mode::Tramage(_) => {
             tramage_aleatoire(&mut rgb8_img);
+        }
+        Mode::Tramagebayer(opts) => {
+            tramage_bayer(&mut rgb8_img, opts.ordre);
         }
     }
    
